@@ -21,7 +21,7 @@ on:
       registry:
         description: "Registry base URL"
         required: true
-        default: "https://staging.registry.xiom-lang.org"
+        default: "https://registry.xiom-lang.org"
       mode:
         description: "publish, or yank the version below"
         required: true
@@ -47,6 +47,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Show target
+        run: |
+          set -euo pipefail
+          if [ -z "${XIOM_REGISTRY:-}" ]; then
+            echo "::error::the registry input is empty; set it (staging: https://staging.registry.xiom-lang.org)"
+            exit 1
+          fi
+          echo "TARGET registry: ${XIOM_REGISTRY}"
+          echo "mode:            ${{ github.event.inputs.mode }}"
+          echo "repo:            ${GITHUB_REPOSITORY}"
+          echo "ref:             ${GITHUB_REF}"
+          echo "package.xi name: $(sed -n 's/.*name:[[:space:]]*"\([^"]*\)".*/\1/p' package.xi | head -n1)"
 
       - name: Mint registry token (GitHub OIDC)
         run: |
@@ -85,12 +98,15 @@ jobs:
           set -euo pipefail
           pin="v0.61.3"
           pv="${pin#v}"
-          curl -fsSL -o xiom-compiler.tar.gz \
+          # Keep the toolchain OUT of the repository: `xiom pkg publish`
+          # packages the working directory, so anything downloaded here would
+          # be bundled into the package and blow the registry size limit.
+          curl -fsSL -o "$RUNNER_TEMP/xiom-compiler.tar.gz" \
             "https://github.com/xiom-lang/xiom/releases/download/${pin}/xiom-${pv}-linux-x64.tar.gz"
-          mkdir -p compiler
-          tar -xzf xiom-compiler.tar.gz -C compiler
-          test -x compiler/bin/xiom
-          echo "$PWD/compiler/bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/compiler"
+          tar -xzf "$RUNNER_TEMP/xiom-compiler.tar.gz" -C "$RUNNER_TEMP/compiler"
+          test -x "$RUNNER_TEMP/compiler/bin/xiom"
+          echo "$RUNNER_TEMP/compiler/bin" >> "$GITHUB_PATH"
 
       - name: Prepare signing key
         if: github.event.inputs.mode == 'publish'
