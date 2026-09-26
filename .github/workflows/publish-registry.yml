@@ -21,7 +21,7 @@ on:
       registry:
         description: "Registry base URL"
         required: true
-        default: "https://registry.xiom-lang.org"
+        default: "https://staging.registry.xiom-lang.org"
       mode:
         description: "publish, or yank the version below"
         required: true
